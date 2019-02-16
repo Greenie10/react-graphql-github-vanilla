@@ -50,14 +50,25 @@ class App extends Component {
 
   render() {
     const { path, organization, errors } = this.state;
-    const Organization = ({ organization }) => (
-      <div>
-        <p>
-          <strong>Issues from Organization:</strong>
-          <a href={organization.url}>{organization.name}</a>
-        </p>
-      </div>
-    );
+    const Organization = ({ organization, errors }) => {
+      if (errors) {
+        return (
+          <p>
+            <strong>Something went wrong:</strong>
+            {errors.map(error => error.message).join(" ")}
+          </p>
+        );
+      }
+
+      return (
+        <div>
+          <p>
+            <strong>Issues from Organization:</strong>
+            <a href={organization.url}>{organization.name}</a>
+          </p>
+        </div>
+      );
+    };
     return (
       <div>
         <h1>{TITLE}</h1>
