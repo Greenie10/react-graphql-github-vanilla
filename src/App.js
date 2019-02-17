@@ -13,14 +13,18 @@ const axiosGitHubGraphQL = axios.create({
 });
 
 const GET_ISSUES_OF_REPOSITORY = `
-query ($organization: String!, $repository: String!) {
+query (
+  $organization: String!, 
+  $repository: String!,
+  $cursor: String
+  ) {
   organization(login: $organization) {
     name
     url
     repository(name: $repository) {
       name
       url
-      issues(last: 5, states: [OPEN]) {
+      issues(first: 5, after: $cursor, states: [OPEN]) {
         edges {
           node {
             id
@@ -36,18 +40,23 @@ query ($organization: String!, $repository: String!) {
             }
           }
         }
+        totalCount
+        pageInfo {
+          endCursor
+          hasNextPage
+        }
       }
     }
   }
 }
 `;
 
-const getIssuesOfRepository = path => {
+const getIssuesOfRepository = (path, cursor) => {
   const [organization, repository] = path.split("/");
 
   return axiosGitHubGraphQL.post("", {
     query: GET_ISSUES_OF_REPOSITORY,
-    variables: { organization, repository }
+    variables: { organization, repository, cursor }
   });
 };
 
@@ -74,10 +83,15 @@ class App extends Component {
     event.preventDefault();
   };
 
-  onFetchFromGitHub = path => {
-    getIssuesOfRepository(path).then(queryResult =>
-      this.setState(resolveIssuesQuery(queryResult))
+  onFetchFromGitHub = (path, cursor) => {
+    getIssuesOfRepository(path, cursor).then(queryResult =>
+      this.setState(resolveIssuesQuery(queryResult, cursor))
     );
+  };
+
+  onFetchMoreIssues = () => {
+    const { endCursor } = this.state.organization.repository.issues.pageInfo;
+    this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
   render() {
@@ -99,7 +113,11 @@ class App extends Component {
         </form>
         <hr />
         {organization ? (
-          <Organization organization={organization} errors={errors} />
+          <Organization
+            organization={organization}
+            errors={errors}
+            onFetchMoreIssues={this.onFetchMoreIssues}
+          />
         ) : (
           <p>No information yet ...</p>
         )}{" "}
@@ -107,7 +125,7 @@ class App extends Component {
     );
   }
 }
-const Organization = ({ organization, errors }) => {
+const Organization = ({ organization, errors, onFetchMoreIssues }) => {
   if (errors) {
     return (
       <p>
@@ -123,12 +141,15 @@ const Organization = ({ organization, errors }) => {
         <strong>Issues from Organization:</strong>
         <a href={organization.url}>{organization.name}</a>
       </p>
-      <Repository repository={organization.repository} />
+      <Repository
+        repository={organization.repository}
+        onFetchMoreIssues={onFetchMoreIssues}
+      />
     </div>
   );
 };
 
-const Repository = ({ repository }) => (
+const Repository = ({ repository, onFetchMoreIssues }) => (
   <div>
     <p>
       <strong>In Repository:</strong>
@@ -146,6 +167,7 @@ const Repository = ({ repository }) => (
         </li>
       ))}
     </ul>
+    <button onClick={onFetchMoreIssues}>More</button>
   </div>
 );
 
